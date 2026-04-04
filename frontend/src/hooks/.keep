@@ -1,0 +1,7 @@
+# Custom React Hooks
+
+# Example files to create:
+# - useFetch.js - Data fetching with loading/error states
+# - useAuth.js - Authentication logic
+# - usePets.js - Pet management
+# - useForm.js - Form handling

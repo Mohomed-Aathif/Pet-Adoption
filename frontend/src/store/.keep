@@ -1,0 +1,6 @@
+# Store configuration - Redux, Context API, Zustand, etc.
+
+# Example with Context API:
+# - Create authContext.js for authentication state
+# - Create petsContext.js for pet listings
+# - Use with useContext hook in components

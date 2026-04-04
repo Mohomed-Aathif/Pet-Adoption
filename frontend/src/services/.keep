@@ -1,0 +1,7 @@
+# API Service Functions
+
+# Example files to create:
+# - petService.js - Pet-related API calls
+# - userService.js - User/auth API calls
+# - adoptionService.js - Adoption-related API calls
+# - Each service uses the apiClient from api.js
