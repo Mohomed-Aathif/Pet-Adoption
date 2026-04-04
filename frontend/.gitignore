@@ -24,3 +24,7 @@ coverage/
 .env.development.local
 .env.test.local
 .env.production.local
+
+FRONTEND_COMPLETE.md
+FRONTEND_SETUP.md
+FRONTEND_STRUCTURE.md
