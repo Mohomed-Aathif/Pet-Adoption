@@ -1,21 +1,16 @@
-import { useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../hooks/useTheme'
 import { useAuth } from '../../contexts/AuthContext'
 import { Menu, X, Sun, Moon, LogOut, Loader } from 'lucide-react'
+import apiClient from '../../services/api'
 
 export default function Navbar({ onMenuToggle, isSidebarOpen }) {
   const { isDark, toggleTheme } = useTheme()
   const { user, logout, isAuthenticated, loading } = useAuth()
   const navigate = useNavigate()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
-
-  const navLinkClass = ({ isActive }) =>
-    `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-      isActive
-        ? 'bg-blue-50 text-blue-600 dark:bg-gray-800 dark:text-blue-400'
-        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-    }`
+  const [unseenCount, setUnseenCount] = useState(0)
 
   const handleLogout = () => {
     logout()
@@ -29,6 +24,67 @@ export default function Navbar({ onMenuToggle, isSidebarOpen }) {
   }
 
   const userInitials = getInitials(user?.email)
+
+  const getLastSeenKey = () => {
+    const userId = user?.id ?? 'unknown'
+    const role = user?.role ?? 'unknown'
+    return `notifications_last_seen_${userId}_${role}`
+  }
+
+  const markNotificationsSeen = () => {
+    if (!user) return
+    localStorage.setItem(getLastSeenKey(), new Date().toISOString())
+    setUnseenCount(0)
+  }
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      setUnseenCount(0)
+      return
+    }
+
+    let isMounted = true
+
+    const loadUnseenCount = async () => {
+      try {
+        const endpoint = user.role === 'adopter'
+          ? '/v1/adoptions/me'
+          : '/v1/adoptions/requests?skip=0&limit=100'
+
+        const response = await apiClient.get(endpoint)
+        if (!isMounted) return
+
+        const items = Array.isArray(response.data) ? response.data : []
+        const lastSeenKey = getLastSeenKey()
+        const lastSeenValue = localStorage.getItem(lastSeenKey)
+
+        // First load for a user/session: initialize baseline without showing old requests as new.
+        if (!lastSeenValue) {
+          localStorage.setItem(lastSeenKey, new Date().toISOString())
+          setUnseenCount(0)
+          return
+        }
+
+        const lastSeenTs = new Date(lastSeenValue).getTime()
+        const unseen = items.filter((item) => {
+          const createdTs = new Date(item.created_at || item.updated_at || 0).getTime()
+          return Number.isFinite(createdTs) && createdTs > lastSeenTs
+        }).length
+
+        setUnseenCount(unseen)
+      } catch {
+        if (isMounted) setUnseenCount(0)
+      }
+    }
+
+    loadUnseenCount()
+    const intervalId = setInterval(loadUnseenCount, 10000)
+
+    return () => {
+      isMounted = false
+      clearInterval(intervalId)
+    }
+  }, [isAuthenticated, user?.id, user?.role])
 
   return (
     <nav className="sticky top-0 z-40 w-full bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 shadow-sm">
@@ -60,30 +116,26 @@ export default function Navbar({ onMenuToggle, isSidebarOpen }) {
             </Link>
           </div>
 
-          {/* Center: Navigation (hidden on mobile) */}
-          <div className="hidden md:flex flex-1 max-w-2xl mx-4 items-center justify-center gap-2">
-            <NavLink to="/" end className={navLinkClass}>
-              Dashboard
-            </NavLink>
-            <NavLink to="/pets" className={navLinkClass}>
-              Browse Pets
-            </NavLink>
-            <NavLink to="/profile" className={navLinkClass}>
-              Profile
-            </NavLink>
-            <NavLink to="/notifications" className={navLinkClass}>
-              Notifications
-            </NavLink>
-          </div>
+          {/* Center spacer */}
+          <div className="hidden md:block flex-1" />
 
           {/* Right: Actions */}
           <div className="flex items-center gap-3">
             
             {/* Notifications (hidden on mobile) */}
-            <Link to="/notifications" className="hidden sm:block p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            <Link
+              to="/notifications"
+              onClick={markNotificationsSeen}
+              className="relative hidden sm:block p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
               <svg className="w-6 h-6 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
+              {unseenCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-600 text-white text-[10px] font-bold leading-5 text-center">
+                  {unseenCount > 99 ? '99+' : unseenCount}
+                </span>
+              )}
             </Link>
 
             {/* Theme Toggle */}
