@@ -6,10 +6,10 @@ import Layout from './components/layout/Layout'
 import Home from './components/pages/Home'
 import PetsBrowse from './components/pages/PetsBrowse'
 import Profile from './components/pages/Profile'
+import Favorites from './components/pages/Favorites'
 import Notifications from './components/pages/Notifications'
 import Login from './components/pages/Login'
 import Register from './components/pages/Register'
-import AdminDashboard from './components/pages/AdminDashboard'
 import AdminUsers from './components/pages/AdminUsers'
 import AdminPets from './components/pages/AdminPets'
 import AdminRequests from './components/pages/AdminRequests'
@@ -36,15 +36,8 @@ function App() {
             <Route index element={<Home />} />
             <Route path="pets" element={<PetsBrowse />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="favorites" element={<Favorites />} />
             <Route path="notifications" element={<Notifications />} />
-            <Route
-              path="admin"
-              element={
-                <RoleProtectedRoute allowedRoles={['admin']}>
-                  <AdminDashboard />
-                </RoleProtectedRoute>
-              }
-            />
             <Route
               path="admin/users"
               element={

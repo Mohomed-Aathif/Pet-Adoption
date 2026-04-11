@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react'
 import apiClient from '../services/api'
 
 export const AuthContext = createContext(null)
@@ -133,18 +133,22 @@ export const AuthProvider = ({ children }) => {
     [user]
   )
 
-  const value = {
-    user,
-    token,
-    loading,
-    error,
-    register,
-    login,
-    logout,
-    hasRole,
-    hasAnyRole,
-    isAuthenticated: !!token && !!user,
-  }
+  const value = useMemo(
+    () => ({
+      user,
+      token,
+      loading,
+      error,
+      register,
+      login,
+      logout,
+      refreshUser: () => (token ? fetchUserInfo(token) : Promise.resolve(null)),
+      hasRole,
+      hasAnyRole,
+      isAuthenticated: !!token && !!user,
+    }),
+    [user, token, loading, error, register, login, logout, fetchUserInfo, hasRole, hasAnyRole]
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

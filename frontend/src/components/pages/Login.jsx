@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock, AlertCircle, Loader } from 'lucide-react'
+import { Mail, Lock, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 
 export default function Login() {
@@ -12,6 +12,7 @@ export default function Login() {
     password: '',
   })
   const [localError, setLocalError] = useState(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -32,8 +33,8 @@ export default function Login() {
 
     try {
       await login(formData.email, formData.password)
-      // Redirect based on role
-      navigate('/pets')
+      // Send every user to the dashboard shown in the sidebar.
+      navigate('/', { replace: true })
     } catch (err) {
       setLocalError(err.message)
     }
@@ -64,12 +65,13 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Email Address
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                 <input
+                  id="login-email"
                   type="email"
                   name="email"
                   value={formData.email}
@@ -83,20 +85,30 @@ export default function Login() {
 
             {/* Password Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                 <input
-                  type="password"
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                  className="w-full pl-10 pr-12 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   disabled={loading}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  disabled={loading}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 
@@ -136,22 +148,6 @@ export default function Login() {
           >
             Create Account
           </Link>
-        </div>
-
-        {/* Demo Credentials */}
-        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <p className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">Demo Credentials:</p>
-          <div className="space-y-1 text-xs text-blue-800 dark:text-blue-200">
-            <p>
-              <strong>Adopter:</strong> adopter@example.com / password123
-            </p>
-            <p>
-              <strong>Shelter:</strong> shelter@example.com / password123
-            </p>
-            <p>
-              <strong>Admin:</strong> admin@petadoption.com / AdminPassword123
-            </p>
-          </div>
         </div>
       </div>
     </div>

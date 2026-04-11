@@ -1,14 +1,14 @@
-import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useTheme } from '../../hooks/useTheme'
 import { useAuth } from '../../contexts/AuthContext'
+import apiClient from '../../services/api'
 import {
   Home,
   Search,
   Heart,
   FileText,
   Settings,
-  Users,
   Shield,
   BarChart3,
   ChevronDown,
@@ -18,8 +18,93 @@ import {
 
 export default function Sidebar({ isOpen, onClose }) {
   useTheme()
+  const location = useLocation()
   const { user, logout } = useAuth()
   const [expandedItem, setExpandedItem] = useState(null)
+  const [availablePetsCount, setAvailablePetsCount] = useState(null)
+  const [favoritesCount, setFavoritesCount] = useState(null)
+  const [myPetsCount, setMyPetsCount] = useState(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchAvailablePetsCount = async () => {
+      try {
+        const response = await apiClient.get('/v1/pets')
+        if (!isMounted || !Array.isArray(response.data)) return
+
+        const availableCount = response.data.filter((pet) => {
+          const status = pet?.status?.value || pet?.status
+          return String(status || '').toLowerCase() === 'available'
+        }).length
+
+        setAvailablePetsCount(availableCount)
+      } catch {
+        if (isMounted) setAvailablePetsCount(null)
+      }
+    }
+
+    fetchAvailablePetsCount()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  // Load favorites count for adopters
+  useEffect(() => {
+    if (user?.role !== 'adopter') return
+
+    let isMounted = true
+
+    const fetchFavoritesCount = async () => {
+      try {
+        const response = await apiClient.get('/v1/favorites/count')
+        if (isMounted && response.data?.count !== undefined) {
+          setFavoritesCount(response.data.count)
+        }
+      } catch {
+        if (isMounted) setFavoritesCount(null)
+      }
+    }
+
+    fetchFavoritesCount()
+
+    return () => {
+      isMounted = false
+    }
+  }, [user?.role])
+
+  // Load owned pets count for owner/shelter users
+  useEffect(() => {
+    if (!user?.id || !['owner', 'shelter'].includes(user?.role)) {
+      setMyPetsCount(null)
+      return
+    }
+
+    let isMounted = true
+
+    const fetchMyPetsCount = async () => {
+      try {
+        const response = await apiClient.get('/v1/pets')
+        if (!isMounted || !Array.isArray(response.data)) return
+
+        const ownedCount = response.data.filter(
+          (pet) => Number(pet?.owner_id) === Number(user.id)
+        ).length
+
+        setMyPetsCount(ownedCount)
+      } catch {
+        if (isMounted) setMyPetsCount(null)
+      }
+    }
+
+    fetchMyPetsCount()
+
+    return () => {
+      isMounted = false
+    }
+  }, [user?.id, user?.role])
 
   // Build menu items based on user role
   const getMenuItems = () => {
@@ -34,8 +119,8 @@ export default function Sidebar({ isOpen, onClose }) {
         label: 'Browse Pets',
         icon: Search,
         path: '/pets',
-        roles: ['admin', 'adopter', 'owner'],
-        badge: '12'
+        roles: ['admin', 'adopter', 'owner', 'shelter'],
+        badge: availablePetsCount === null ? null : String(availablePetsCount)
       }
     ]
 
@@ -43,9 +128,9 @@ export default function Sidebar({ isOpen, onClose }) {
       {
         label: 'My Favorites',
         icon: Heart,
-        path: '/profile',
+        path: '/favorites',
         roles: ['adopter'],
-        badge: '5'
+        badge: favoritesCount === null ? null : String(favoritesCount)
       },
       {
         label: 'My Requests',
@@ -53,8 +138,8 @@ export default function Sidebar({ isOpen, onClose }) {
         path: '/notifications',
         roles: ['adopter'],
         submenu: [
-          { label: 'Active', path: '/notifications' },
-          { label: 'Completed', path: '/notifications' }
+          { label: 'Active', path: '/notifications?view=active' },
+          { label: 'Completed', path: '/notifications?view=completed' }
         ]
       }
     ]
@@ -63,9 +148,9 @@ export default function Sidebar({ isOpen, onClose }) {
       {
         label: 'My Pets',
         icon: Heart,
-        path: '/pets',
+        path: '/pets?view=my',
         roles: ['shelter'],
-        badge: '8'
+        badge: myPetsCount === null ? null : String(myPetsCount)
       },
       {
         label: 'Adoption Requests',
@@ -73,9 +158,29 @@ export default function Sidebar({ isOpen, onClose }) {
         path: '/notifications',
         roles: ['shelter'],
         submenu: [
-          { label: 'Pending', path: '/notifications' },
-          { label: 'Approved', path: '/notifications' },
-          { label: 'Rejected', path: '/notifications' }
+          { label: 'Pending', path: '/notifications?status=pending' },
+          { label: 'Approved', path: '/notifications?status=approved' },
+          { label: 'Rejected', path: '/notifications?status=rejected' }
+        ]
+      }
+    ]
+
+    const ownerItems = [
+      {
+        label: 'My Pets',
+        icon: Heart,
+        path: '/pets?view=my',
+        roles: ['owner']
+      },
+      {
+        label: 'Adoption Requests',
+        icon: FileText,
+        path: '/notifications',
+        roles: ['owner'],
+        submenu: [
+          { label: 'Pending', path: '/notifications?status=pending' },
+          { label: 'Approved', path: '/notifications?status=approved' },
+          { label: 'Rejected', path: '/notifications?status=rejected' }
         ]
       }
     ]
@@ -101,7 +206,7 @@ export default function Sidebar({ isOpen, onClose }) {
     ]
 
     // Filter items by user role
-    const allItems = [...baseItems, ...adopterItems, ...shelterItems, ...adminItems]
+    const allItems = [...baseItems, ...adopterItems, ...ownerItems, ...shelterItems, ...adminItems]
     return allItems.filter(item => user && item.roles.includes(user.role))
   }
 
@@ -126,6 +231,45 @@ export default function Sidebar({ isOpen, onClose }) {
     transition-colors cursor-pointer font-medium
     ${isActive ? 'bg-blue-50 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : ''}
   `
+
+  const isSubItemActive = (path) => {
+    const [targetPathname, targetSearch = ''] = path.split('?')
+    if (location.pathname !== targetPathname) return false
+
+    if (!targetSearch) return true
+
+    const current = new URLSearchParams(location.search)
+    const target = new URLSearchParams(targetSearch)
+
+    for (const [key, value] of target.entries()) {
+      if (current.get(key) !== value) return false
+    }
+
+    return true
+  }
+
+  const isMenuItemActive = (path) => {
+    const [targetPathname, targetSearch = ''] = path.split('?')
+    if (location.pathname !== targetPathname) return false
+
+    const current = new URLSearchParams(location.search)
+
+    if (!targetSearch) {
+      if (targetPathname === '/pets') {
+        return current.get('view') !== 'my'
+      }
+
+      return true
+    }
+
+    const target = new URLSearchParams(targetSearch)
+
+    for (const [key, value] of target.entries()) {
+      if (current.get(key) !== value) return false
+    }
+
+    return true
+  }
 
   const handleNavClick = () => {
     if (isOpen) onClose()
@@ -172,7 +316,7 @@ export default function Sidebar({ isOpen, onClose }) {
             to={item.path}
             end={item.path === '/'}
             onClick={handleNavClick}
-            className={({ isActive }) => menuItemClass(isActive)}
+            className={({ isActive }) => menuItemClass(isActive && isMenuItemActive(item.path))}
           >
             <div className="flex items-center gap-3 flex-1">
               <Icon className="w-5 h-5 flex-shrink-0" />
@@ -191,12 +335,14 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="ml-4 mt-2 space-y-1 border-l-2 border-gray-200 dark:border-gray-700 pl-2">
             {submenu.map((subitem, subindex) => (
               <NavLink
-                key={subindex}
+                key={subitem.path}
                 to={subitem.path}
                 onClick={handleNavClick}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-600 dark:text-gray-400
-                   hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800
-                   rounded-lg transition-colors"
+                className={`block w-full text-left px-4 py-2 text-sm rounded-lg transition-colors ${
+                  isSubItemActive(subitem.path)
+                    ? 'bg-blue-50 dark:bg-gray-800 text-blue-600 dark:text-blue-400 font-semibold'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                }`}
               >
                 {subitem.label}
               </NavLink>

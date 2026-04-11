@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock, User, AlertCircle, Loader, CheckCircle } from 'lucide-react'
+import { Mail, Lock, User, AlertCircle, Loader, CheckCircle, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 
 export default function Register() {
@@ -16,6 +16,8 @@ export default function Register() {
   })
   const [localError, setLocalError] = useState(null)
   const [success, setSuccess] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -67,6 +69,23 @@ export default function Register() {
 
   const displayError = localError || error
 
+  let submitContent = 'Create Account'
+  if (loading) {
+    submitContent = (
+      <>
+        <Loader className="w-4 h-4 animate-spin" />
+        Creating Account...
+      </>
+    )
+  } else if (success) {
+    submitContent = (
+      <>
+        <CheckCircle className="w-4 h-4" />
+        Account Created!
+      </>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
@@ -106,12 +125,13 @@ export default function Register() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Full Name Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label htmlFor="register-full-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Full Name
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                 <input
+                  id="register-full-name"
                   type="text"
                   name="fullName"
                   value={formData.fullName}
@@ -125,12 +145,13 @@ export default function Register() {
 
             {/* Email Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label htmlFor="register-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Email Address
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                 <input
+                  id="register-email"
                   type="email"
                   name="email"
                   value={formData.email}
@@ -144,10 +165,11 @@ export default function Register() {
 
             {/* Role Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label htmlFor="register-role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 I am a...
               </label>
               <select
+                id="register-role"
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
@@ -162,20 +184,30 @@ export default function Register() {
 
             {/* Password Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label htmlFor="register-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                 <input
-                  type="password"
+                  id="register-password"
+                  type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                  className="w-full pl-10 pr-12 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   disabled={loading || success}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  disabled={loading || success}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Minimum 8 characters
@@ -184,20 +216,30 @@ export default function Register() {
 
             {/* Confirm Password Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label htmlFor="register-confirm-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Confirm Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                 <input
-                  type="password"
+                  id="register-confirm-password"
+                  type={showConfirmPassword ? 'text' : 'password'}
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                  className="w-full pl-10 pr-12 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   disabled={loading || success}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100"
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                  disabled={loading || success}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 
@@ -207,19 +249,7 @@ export default function Register() {
               disabled={loading || success}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-lg transition duration-200 flex items-center justify-center gap-2 mt-6"
             >
-              {loading ? (
-                <>
-                  <Loader className="w-4 h-4 animate-spin" />
-                  Creating Account...
-                </>
-              ) : success ? (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  Account Created!
-                </>
-              ) : (
-                'Create Account'
-              )}
+              {submitContent}
             </button>
           </form>
 
