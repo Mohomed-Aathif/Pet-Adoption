@@ -75,9 +75,9 @@ export default function Sidebar({ isOpen, onClose }) {
     }
   }, [user?.role])
 
-  // Load owned pets count for owner/shelter users
+  // Load owned pets count for owner users
   useEffect(() => {
-    if (!user?.id || !['owner', 'shelter'].includes(user?.role)) {
+    if (!user?.id || user?.role !== 'owner') {
       setMyPetsCount(null)
       return
     }
@@ -112,14 +112,14 @@ export default function Sidebar({ isOpen, onClose }) {
       {
         label: 'Dashboard',
         icon: Home,
-        path: '/',
-        roles: ['admin', 'adopter', 'owner', 'shelter']
+        path: '/dashboard',
+        roles: ['admin', 'adopter', 'owner']
       },
       {
         label: 'Browse Pets',
         icon: Search,
         path: '/pets',
-        roles: ['admin', 'adopter', 'owner', 'shelter'],
+        roles: ['admin', 'adopter'],
         badge: availablePetsCount === null ? null : String(availablePetsCount)
       }
     ]
@@ -135,32 +135,11 @@ export default function Sidebar({ isOpen, onClose }) {
       {
         label: 'My Requests',
         icon: FileText,
-        path: '/notifications',
+        path: '/requests',
         roles: ['adopter'],
         submenu: [
-          { label: 'Active', path: '/notifications?view=active' },
-          { label: 'Completed', path: '/notifications?view=completed' }
-        ]
-      }
-    ]
-
-    const shelterItems = [
-      {
-        label: 'My Pets',
-        icon: Heart,
-        path: '/pets?view=my',
-        roles: ['shelter'],
-        badge: myPetsCount === null ? null : String(myPetsCount)
-      },
-      {
-        label: 'Adoption Requests',
-        icon: FileText,
-        path: '/notifications',
-        roles: ['shelter'],
-        submenu: [
-          { label: 'Pending', path: '/notifications?status=pending' },
-          { label: 'Approved', path: '/notifications?status=approved' },
-          { label: 'Rejected', path: '/notifications?status=rejected' }
+          { label: 'Active', path: '/requests?view=active' },
+          { label: 'Completed', path: '/requests?view=completed' }
         ]
       }
     ]
@@ -170,17 +149,18 @@ export default function Sidebar({ isOpen, onClose }) {
         label: 'My Pets',
         icon: Heart,
         path: '/pets?view=my',
-        roles: ['owner']
+        roles: ['owner'],
+        badge: myPetsCount === null ? null : String(myPetsCount)
       },
       {
         label: 'Adoption Requests',
         icon: FileText,
-        path: '/notifications',
+        path: '/requests',
         roles: ['owner'],
         submenu: [
-          { label: 'Pending', path: '/notifications?status=pending' },
-          { label: 'Approved', path: '/notifications?status=approved' },
-          { label: 'Rejected', path: '/notifications?status=rejected' }
+          { label: 'Pending', path: '/requests?status=pending' },
+          { label: 'Approved', path: '/requests?status=approved' },
+          { label: 'Rejected', path: '/requests?status=rejected' }
         ]
       }
     ]
@@ -194,7 +174,9 @@ export default function Sidebar({ isOpen, onClose }) {
         submenu: [
           { label: 'Users', path: '/admin/users' },
           { label: 'Pets', path: '/admin/pets' },
-          { label: 'Requests', path: '/admin/requests' }
+          { label: 'Requests', path: '/admin/requests' },
+          { label: 'Donations', path: '/admin/donations' },
+          { label: 'Stray Reports', path: '/admin/stray-reports' }
         ]
       },
       {
@@ -206,7 +188,7 @@ export default function Sidebar({ isOpen, onClose }) {
     ]
 
     // Filter items by user role
-    const allItems = [...baseItems, ...adopterItems, ...ownerItems, ...shelterItems, ...adminItems]
+    const allItems = [...baseItems, ...adopterItems, ...ownerItems, ...adminItems]
     return allItems.filter(item => user && item.roles.includes(user.role))
   }
 
@@ -215,7 +197,7 @@ export default function Sidebar({ isOpen, onClose }) {
       label: 'Settings',
       icon: Settings,
       path: '/profile',
-      roles: ['admin', 'adopter', 'owner', 'shelter']
+      roles: ['admin', 'adopter', 'owner']
     }
   ]
 
@@ -226,10 +208,10 @@ export default function Sidebar({ isOpen, onClose }) {
   }
 
   const menuItemClass = (isActive = false) => `
-    w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg
-    text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800
-    transition-colors cursor-pointer font-medium
-    ${isActive ? 'bg-blue-50 dark:bg-gray-800 text-blue-600 dark:text-blue-400' : ''}
+    theme-nav-item dashboard-lift w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl
+    text-gray-700 dark:text-gray-300
+    cursor-pointer font-medium
+    ${isActive ? 'theme-nav-active' : ''}
   `
 
   const isSubItemActive = (path) => {
@@ -340,7 +322,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 onClick={handleNavClick}
                 className={`block w-full text-left px-4 py-2 text-sm rounded-lg transition-colors ${
                   isSubItemActive(subitem.path)
-                    ? 'bg-blue-50 dark:bg-gray-800 text-blue-600 dark:text-blue-400 font-semibold'
+                    ? 'theme-nav-active font-semibold'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
                 }`}
               >
@@ -367,7 +349,7 @@ export default function Sidebar({ isOpen, onClose }) {
       <aside
         className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-gray-950
           border-r border-gray-200 dark:border-gray-800 overflow-y-auto
-          transition-transform duration-300 z-30
+          transition-transform duration-300 z-30 backdrop-blur-xl bg-white/90 dark:bg-gray-950/90
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
@@ -383,14 +365,14 @@ export default function Sidebar({ isOpen, onClose }) {
 
           {/* User Info */}
           {user && (
-            <div className="px-2 py-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="dashboard-panel px-2 py-3 theme-surface rounded-2xl border theme-border">
               <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">
                 Logged in as
               </p>
               <p className="text-sm font-bold text-gray-900 dark:text-white mt-1">
                 {user.email}
               </p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-1">
+              <p className="text-xs theme-primary-text font-semibold mt-1">
                 {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
               </p>
             </div>
@@ -426,7 +408,7 @@ export default function Sidebar({ isOpen, onClose }) {
               onClick={handleLogout}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg
                 text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20
-                transition-colors font-medium border border-red-200 dark:border-red-800/50"
+                transition-all duration-200 hover:-translate-y-0.5 font-medium border border-red-200 dark:border-red-800/50"
             >
               <LogOut className="w-5 h-5 flex-shrink-0" />
               <span>Sign Out</span>
@@ -434,16 +416,15 @@ export default function Sidebar({ isOpen, onClose }) {
           )}
 
           {/* Help Card */}
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20
-            rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-            <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+          <div className="dashboard-panel bg-gradient-to-br from-violet-50 to-indigo-100 dark:from-violet-900/20 dark:to-indigo-900/20
+            rounded-2xl p-4 border border-violet-200 dark:border-violet-800">
+            <h3 className="text-sm font-semibold text-violet-900 dark:text-violet-100 mb-2">
               Need Help?
             </h3>
-            <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+            <p className="text-xs text-violet-700 dark:text-violet-300 mb-3">
               Have questions about our platform? Check out our FAQ.
             </p>
-            <button className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white
-              text-sm font-medium rounded-lg transition-colors">
+            <button className="theme-primary-bg w-full px-3 py-2 text-sm font-medium rounded-lg">
               Learn More
             </button>
           </div>

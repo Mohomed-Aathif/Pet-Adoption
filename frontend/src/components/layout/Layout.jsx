@@ -16,7 +16,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
+    <div className="app-role-background min-h-screen">
       {/* Navbar */}
       <Navbar 
         onMenuToggle={handleMenuToggle} 

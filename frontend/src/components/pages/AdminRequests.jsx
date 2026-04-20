@@ -31,16 +31,6 @@ export default function AdminRequests() {
     }
   }
 
-  const updateStatus = async (id, status) => {
-    try {
-      setError('')
-      await apiClient.put(`/v1/adoptions/requests/${id}/status`, { status })
-      await loadRequests()
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to update request status')
-    }
-  }
-
   useEffect(() => {
     loadRequests()
 
@@ -52,6 +42,20 @@ export default function AdminRequests() {
       clearInterval(intervalId)
     }
   }, [statusFilter])
+
+  const getStatusBadgeClass = (status) => {
+    const normalized = String(status || '').toLowerCase()
+    if (normalized === 'completed') return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+    if (normalized === 'cancelled') return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+    return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+  }
+
+  const getStatusLabel = (status) => {
+    const normalized = String(status || '').toLowerCase()
+    if (normalized === 'completed') return 'Approved'
+    if (normalized === 'cancelled') return 'Rejected'
+    return 'Pending'
+  }
 
   return (
     <div className="space-y-4">
@@ -91,8 +95,8 @@ export default function AdminRequests() {
                   <th className="py-2 pr-4">User Name</th>
                   <th className="py-2 pr-4">Pet ID</th>
                   <th className="py-2 pr-4">Pet Name</th>
+                  <th className="py-2 pr-4">Pet Owner</th>
                   <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -103,24 +107,11 @@ export default function AdminRequests() {
                     <td className="py-2 pr-4">{item.user_name || '-'}</td>
                     <td className="py-2 pr-4">{item.pet_id}</td>
                     <td className="py-2 pr-4">{item.pet_name || '-'}</td>
-                    <td className="py-2 pr-4 capitalize">{item.status}</td>
-                    <td className="py-2 pr-4 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => updateStatus(item.id, 'completed')}
-                        disabled={item.status !== 'pending'}
-                        className="rounded bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateStatus(item.id, 'cancelled')}
-                        disabled={item.status !== 'pending'}
-                        className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
-                      >
-                        Reject
-                      </button>
+                    <td className="py-2 pr-4">{item.pet_owner_name || '-'}</td>
+                    <td className="py-2 pr-4">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${getStatusBadgeClass(item.status)}`}>
+                        {getStatusLabel(item.status)}
+                      </span>
                     </td>
                   </tr>
                 ))}

@@ -9,6 +9,19 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+
+    const role = user?.role || 'guest'
+    document.documentElement.dataset.role = role
+
+    return () => {
+      if (document.documentElement.dataset.role === role) {
+        document.documentElement.dataset.role = 'guest'
+      }
+    }
+  }, [user?.role])
+
   // Initialize from localStorage on mount
   useEffect(() => {
     const storedToken = localStorage.getItem('auth_token')

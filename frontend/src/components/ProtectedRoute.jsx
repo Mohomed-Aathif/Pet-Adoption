@@ -32,7 +32,7 @@ export const ProtectedRoute = ({ children }) => {
 /**
  * RoleProtectedRoute - Restricts access to users with specific roles
  *
- * Usage: <RoleProtectedRoute allowedRoles={['admin', 'shelter']}><YourComponent /></RoleProtectedRoute>
+ * Usage: <RoleProtectedRoute allowedRoles={['admin', 'owner']}><YourComponent /></RoleProtectedRoute>
  */
 export const RoleProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { user, loading, hasAnyRole } = useAuth()
