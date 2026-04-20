@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Heart, Filter, Grid, List, Plus, X, Upload } from 'lucide-react'
 import apiClient, { uploadFile, SERVER_URL } from '../../services/api'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 
 const AGE_STORAGE_OFFSET = 10000
@@ -69,6 +69,7 @@ const splitAgeParts = (rawAge) => {
 const toUiPet = (pet) => ({
   id: pet.id,
   owner_id: pet.owner_id ?? null,
+  ownerName: pet.owner_name || null,
   name: pet.name || 'Pet',
   type: mapSpeciesToType(pet.species),
   age: formatAgeLabel(pet.age),
@@ -77,13 +78,17 @@ const toUiPet = (pet) => ({
   size: pet.size || 'medium',
   breed: pet.breed || 'Unknown Breed',
   species: pet.species,
-  status: pet.status,
+  status: String(pet?.status?.value || pet?.status || '').toLowerCase(),
   description: pet.description,
   image_url: pet.image_url,
+  vaccines_completed: pet.vaccines_completed ?? 0,
+  next_vaccination_date: pet.next_vaccination_date || null,
+  adoptedByName: pet.adopted_by_name || null,
 })
 
 export default function PetsBrowse() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const listingView = (searchParams.get('view') || '').toLowerCase()
   const [viewMode, setViewMode] = useState('grid')
@@ -102,6 +107,8 @@ export default function PetsBrowse() {
     description: '',
     ageYears: '0',
     ageMonths: '0',
+    vaccinesCompleted: '0',
+    nextVaccinationDate: '',
   })
   const [selectedFilters, setSelectedFilters] = useState({
     type: 'all',
@@ -113,9 +120,10 @@ export default function PetsBrowse() {
   const [favorites, setFavorites] = useState(new Set())
   const [favoriteLoading, setFavoriteLoading] = useState(new Set())
 
-  const canAddPets = ['admin', 'owner', 'shelter'].includes(user?.role)
+  const canAddPets = user?.role === 'owner'
   const canRequestAdoption = user?.role === 'adopter'
-  const isMyPetsView = (user?.role === 'owner' || user?.role === 'shelter') && listingView === 'my'
+  const isOwner = user?.role === 'owner'
+  const isMyPetsView = isOwner || listingView === 'my'
   const canManageSelectedPet = !!(
     selectedPet &&
     user &&
@@ -213,6 +221,15 @@ export default function PetsBrowse() {
     return () => { isMounted = false }
   }, [user?.role])
 
+  useEffect(() => {
+    if (!isOwner) return
+    if (listingView === 'my') return
+
+    const query = new URLSearchParams(searchParams)
+    query.set('view', 'my')
+    navigate(`/pets?${query.toString()}`, { replace: true })
+  }, [isOwner, listingView, navigate, searchParams])
+
   const sourcePets = useMemo(() => {
     const petsToShow = isMyPetsView
       ? apiPets.filter((pet) => pet.owner_id === user?.id)
@@ -240,6 +257,8 @@ export default function PetsBrowse() {
       description: pet.description || '',
       ageYears: years,
       ageMonths: months,
+      vaccinesCompleted: String(pet.vaccines_completed ?? 0),
+      nextVaccinationDate: pet.next_vaccination_date ? String(pet.next_vaccination_date).slice(0, 10) : '',
     })
     setEditPetError('')
     setIsEditingPet(true)
@@ -269,6 +288,8 @@ export default function PetsBrowse() {
         breed: editPetForm.breed.trim() || null,
         age: encodedAge,
         description: editPetForm.description.trim() || null,
+        vaccines_completed: Number.parseInt(editPetForm.vaccinesCompleted, 10) || 0,
+        next_vaccination_date: editPetForm.nextVaccinationDate || null,
       }
 
       const response = await apiClient.put(`/v1/pets/${selectedPet.id}`, payload)
@@ -437,6 +458,11 @@ export default function PetsBrowse() {
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
           {pet.breed} • {pet.age}
         </p>
+        {isMyPetsView && pet.status === 'adopted' && (
+          <p className="mb-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            Adopted by {pet.adoptedByName || 'unknown adopter'}
+          </p>
+        )}
         <button
           onClick={() => setSelectedPet(pet)}
           className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white 
@@ -487,6 +513,11 @@ export default function PetsBrowse() {
         <p className="text-sm text-gray-600 dark:text-gray-400">
           {pet.breed} • {pet.age}
         </p>
+        {isMyPetsView && pet.status === 'adopted' && (
+          <p className="mt-1 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            Adopted by {pet.adoptedByName || 'unknown adopter'}
+          </p>
+        )}
       </div>
       <div className="flex gap-2">
         {user?.role === 'adopter' && (
@@ -522,7 +553,7 @@ export default function PetsBrowse() {
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden">
           <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-800">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">{pet.name}</h2>
             <button
@@ -533,7 +564,7 @@ export default function PetsBrowse() {
             </button>
           </div>
 
-          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5 overflow-y-auto">
             <div className="h-56 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-lg overflow-hidden relative">
               {getImageUrl(pet.image_url) ? (
                 <img
@@ -624,6 +655,34 @@ export default function PetsBrowse() {
                   />
                 </div>
 
+                <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <p className="font-semibold text-gray-900 dark:text-white mb-2">Vaccination Records</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block mb-1 font-semibold">Vaccines Completed</label>
+                      <select
+                        value={editPetForm.vaccinesCompleted}
+                        onChange={(e) => setEditPetForm({ ...editPetForm, vaccinesCompleted: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="0">0 vaccines</option>
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+                          <option key={num} value={String(num)}>{num} vaccine{num === 1 ? '' : 's'}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block mb-1 font-semibold">Next Vaccination Date</label>
+                      <input
+                        type="date"
+                        value={editPetForm.nextVaccinationDate}
+                        onChange={(e) => setEditPetForm({ ...editPetForm, nextVaccinationDate: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {editPetError && (
                   <p className="text-red-600 dark:text-red-400">{editPetError}</p>
                 )}
@@ -633,16 +692,27 @@ export default function PetsBrowse() {
                 <p><strong>Species:</strong> {pet.species || '-'}</p>
                 <p><strong>Breed:</strong> {pet.breed || '-'}</p>
                 <p><strong>Age:</strong> {pet.age ?? '-'}</p>
+                {user?.role === 'admin' && (
+                  <p><strong>Owner:</strong> {pet.ownerName || (pet.owner_id ? `Owner #${pet.owner_id}` : '-')}</p>
+                )}
                 <p><strong>Status:</strong> {pet.status || 'available'}</p>
+                {isMyPetsView && pet.status === 'adopted' && (
+                  <p><strong>Adopted by:</strong> {pet.adoptedByName || 'unknown adopter'}</p>
+                )}
                 <div className="pt-2">
                   <p className="font-semibold text-gray-900 dark:text-white">Description</p>
                   <p>{pet.description || 'No description available.'}</p>
+                </div>
+                <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <p className="font-semibold text-gray-900 dark:text-white mb-2">Vaccination Records</p>
+                  <p><strong>Vaccines Completed:</strong> {pet.vaccines_completed ?? 0}</p>
+                  <p><strong>Next Vaccination Date:</strong> {pet.next_vaccination_date ? new Date(pet.next_vaccination_date).toLocaleDateString() : 'Not scheduled'}</p>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="p-5 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-3">
+          <div className="p-5 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-3 shrink-0">
             {isEditingPet ? (
               <>
                 <button
@@ -715,7 +785,8 @@ export default function PetsBrowse() {
   // --- Add Pet Modal ---
   const AddPetModal = () => {
     const [form, setForm] = useState({
-      name: '', species: 'dog', breed: '', ageYears: '0', ageMonths: '0', description: '',
+      name: '', species: 'dog', breed: '', ageYears: '0', ageMonths: '0', description: '', 
+      vaccinesCompleted: '0', nextVaccinationDate: '',
     })
     const [imageFile, setImageFile] = useState(null)
     const [imagePreview, setImagePreview] = useState(null)
@@ -760,6 +831,8 @@ export default function PetsBrowse() {
         formData.append('age', String(encodedAge))
         if (form.description) formData.append('description', form.description)
         formData.append('status', 'available')
+        formData.append('vaccines_completed', form.vaccinesCompleted)
+        if (form.nextVaccinationDate) formData.append('next_vaccination_date', form.nextVaccinationDate)
         if (imageFile) formData.append('image', imageFile)
 
         await uploadFile('/v1/pets/with-image', formData)
@@ -933,6 +1006,41 @@ export default function PetsBrowse() {
               />
             </div>
 
+            {/* Vaccination Section */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Vaccination Records</h3>
+              
+              {/* Vaccines Completed */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Number of Vaccines Completed
+                </label>
+                <select
+                  value={form.vaccinesCompleted}
+                  onChange={(e) => setForm({ ...form, vaccinesCompleted: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="0">0 vaccines</option>
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+                    <option key={num} value={String(num)}>{num} vaccine{num === 1 ? '' : 's'}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Next Vaccination Date */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Next Vaccination Date
+                </label>
+                <input
+                  type="date"
+                  value={form.nextVaccinationDate}
+                  onChange={(e) => setForm({ ...form, nextVaccinationDate: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
             {/* Submit */}
             <button
               type="submit"
@@ -986,7 +1094,7 @@ export default function PetsBrowse() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-          Browse Pets
+          {isOwner ? 'My Pets' : 'Browse Pets'}
         </h1>
         {canAddPets && (
           <button

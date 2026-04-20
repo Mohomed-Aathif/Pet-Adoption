@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import apiClient from '../../services/api'
 
-const roleOptions = ['all', 'admin', 'adopter', 'owner', 'shelter']
+const roleOptions = ['all', 'admin', 'adopter', 'owner']
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([])

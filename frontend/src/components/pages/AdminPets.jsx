@@ -1,6 +1,31 @@
 import { useEffect, useState } from 'react'
 import apiClient from '../../services/api'
 
+const AGE_STORAGE_OFFSET = 10000
+
+const formatPetAge = (rawAge) => {
+  if (rawAge === null || rawAge === undefined || rawAge === '') return '-'
+
+  const numericAge = Number(rawAge)
+  if (!Number.isFinite(numericAge)) return '-'
+
+  const totalMonths = numericAge >= AGE_STORAGE_OFFSET ? numericAge - AGE_STORAGE_OFFSET : numericAge * 12
+  if (totalMonths <= 0) return '-'
+
+  const years = Math.floor(totalMonths / 12)
+  const months = totalMonths % 12
+
+  if (years === 0) {
+    return `${months} month${months === 1 ? '' : 's'}`
+  }
+
+  if (months === 0) {
+    return `${years} year${years === 1 ? '' : 's'}`
+  }
+
+  return `${years} year${years === 1 ? '' : 's'} ${months} month${months === 1 ? '' : 's'}`
+}
+
 export default function AdminPets() {
   const [pets, setPets] = useState([])
   const [loading, setLoading] = useState(true)
@@ -26,7 +51,7 @@ export default function AdminPets() {
   }, [])
 
   const handleDeletePet = async (pet) => {
-    const confirmed = window.confirm(`Delete pet ${pet.name}? This action cannot be undone.`)
+    const confirmed = globalThis.confirm(`Delete pet ${pet.name}? This action cannot be undone.`)
     if (!confirmed) return
 
     try {
@@ -69,6 +94,7 @@ export default function AdminPets() {
                 <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300">
                   <th className="py-2 pr-4">ID</th>
                   <th className="py-2 pr-4">Name</th>
+                  <th className="py-2 pr-4">Owner</th>
                   <th className="py-2 pr-4">Species</th>
                   <th className="py-2 pr-4">Breed</th>
                   <th className="py-2 pr-4">Age</th>
@@ -81,9 +107,10 @@ export default function AdminPets() {
                   <tr key={pet.id} className="border-b border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-100">
                     <td className="py-2 pr-4">{pet.id}</td>
                     <td className="py-2 pr-4">{pet.name}</td>
+                    <td className="py-2 pr-4">{pet.owner_name || (pet.owner_id ? `Owner #${pet.owner_id}` : '-')}</td>
                     <td className="py-2 pr-4">{pet.species}</td>
                     <td className="py-2 pr-4">{pet.breed || '-'}</td>
-                    <td className="py-2 pr-4">{pet.age ?? '-'}</td>
+                    <td className="py-2 pr-4">{formatPetAge(pet.age)}</td>
                     <td className="py-2 pr-4">{pet.status}</td>
                     <td className="py-2 pr-4">
                       <button
