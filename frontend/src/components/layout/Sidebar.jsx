@@ -108,13 +108,11 @@ export default function Sidebar({ isOpen, onClose }) {
 
   // Build menu items based on user role
   const getMenuItems = () => {
-    const dashboardPath = user?.role === 'admin' ? '/admin/dashboard' : '/dashboard'
-
     const baseItems = [
       {
         label: 'Dashboard',
         icon: Home,
-        path: dashboardPath,
+        path: '/dashboard',
         roles: ['admin', 'adopter', 'owner']
       },
       {
