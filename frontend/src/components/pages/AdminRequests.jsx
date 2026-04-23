@@ -10,8 +10,15 @@ export default function AdminRequests() {
 
   const statusFilter = useMemo(() => {
     const value = (searchParams.get('status') || '').toLowerCase()
-    return ['pending', 'completed', 'cancelled'].includes(value) ? value : ''
+    return ['pending', 'approved', 'pickup_requested', 'pickup_scheduled', 'completed', 'cancelled'].includes(value) ? value : ''
   }, [searchParams])
+
+  const formatDateTime = (value) => {
+    if (!value) return '-'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '-'
+    return date.toLocaleString()
+  }
 
   const loadRequests = async () => {
     try {
@@ -46,13 +53,21 @@ export default function AdminRequests() {
   const getStatusBadgeClass = (status) => {
     const normalized = String(status || '').toLowerCase()
     if (normalized === 'completed') return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+    if (normalized === 'owner_marked_completed') return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+    if (normalized === 'pickup_scheduled') return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300'
+    if (normalized === 'pickup_requested') return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+    if (normalized === 'approved') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
     if (normalized === 'cancelled') return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
     return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
   }
 
   const getStatusLabel = (status) => {
     const normalized = String(status || '').toLowerCase()
-    if (normalized === 'completed') return 'Approved'
+    if (normalized === 'approved') return 'Approved'
+    if (normalized === 'pickup_requested') return 'Pickup Requested'
+    if (normalized === 'pickup_scheduled') return 'Pickup Scheduled'
+    if (normalized === 'owner_marked_completed') return 'Completed'
+    if (normalized === 'completed') return 'Completed'
     if (normalized === 'cancelled') return 'Rejected'
     return 'Pending'
   }
@@ -61,7 +76,7 @@ export default function AdminRequests() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Requests</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Adoption Tracking</h1>
           {statusFilter && (
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 capitalize">
               Showing {statusFilter} requests
@@ -91,27 +106,35 @@ export default function AdminRequests() {
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300">
                   <th className="py-2 pr-4">Request ID</th>
-                  <th className="py-2 pr-4">User ID</th>
-                  <th className="py-2 pr-4">User Name</th>
-                  <th className="py-2 pr-4">Pet ID</th>
                   <th className="py-2 pr-4">Pet Name</th>
-                  <th className="py-2 pr-4">Pet Owner</th>
+                  <th className="py-2 pr-4">Adopter Name</th>
+                  <th className="py-2 pr-4">Owner Name</th>
                   <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Pickup Date &amp; Time</th>
+                  <th className="py-2 pr-4">Completion Date</th>
+                  <th className="py-2 pr-4">Timeline</th>
                 </tr>
               </thead>
               <tbody>
                 {requests.map((item) => (
                   <tr key={item.id} className="border-b border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-100">
                     <td className="py-2 pr-4">{item.id}</td>
-                    <td className="py-2 pr-4">{item.user_id}</td>
-                    <td className="py-2 pr-4">{item.user_name || '-'}</td>
-                    <td className="py-2 pr-4">{item.pet_id}</td>
                     <td className="py-2 pr-4">{item.pet_name || '-'}</td>
+                    <td className="py-2 pr-4">{item.user_name || '-'}</td>
                     <td className="py-2 pr-4">{item.pet_owner_name || '-'}</td>
                     <td className="py-2 pr-4">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${getStatusBadgeClass(item.status)}`}>
                         {getStatusLabel(item.status)}
                       </span>
+                    </td>
+                    <td className="py-2 pr-4">{formatDateTime(item.pickup_scheduled_datetime || item.pickup_suggested_datetime || item.pickup_requested_datetime)}</td>
+                    <td className="py-2 pr-4">{formatDateTime(item.completed_at)}</td>
+                    <td className="py-2 pr-4">
+                      <div className="max-w-xs text-xs text-gray-600 dark:text-gray-300">
+                        {Array.isArray(item.timeline) && item.timeline.length > 0
+                          ? item.timeline.map((event) => event.label).join(' -> ')
+                          : '-'}
+                      </div>
                     </td>
                   </tr>
                 ))}
