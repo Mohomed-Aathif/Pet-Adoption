@@ -6,10 +6,42 @@ import apiClient, { SERVER_URL } from '../../services/api'
 
 const getStatusTone = (status) => {
   const normalized = String(status || '').toLowerCase()
-  if (normalized === 'completed' || normalized === 'approved') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+  if (normalized === 'completed') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+  if (normalized === 'owner_marked_completed') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+  if (normalized === 'pickup_scheduled') return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-200'
+  if (normalized === 'pickup_requested') return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+  if (normalized === 'approved') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
   if (normalized === 'pending') return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'
   if (normalized === 'cancelled' || normalized === 'rejected') return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
   return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+}
+
+const getStatusLabel = (status) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'approved') return 'Approved'
+  if (normalized === 'pickup_requested') return 'Pickup Requested'
+  if (normalized === 'pickup_scheduled') return 'Pickup Scheduled'
+  if (normalized === 'owner_marked_completed') return 'Completed'
+  if (normalized === 'completed') return 'Completed'
+  if (normalized === 'cancelled') return 'Rejected'
+  return 'Pending'
+}
+
+const formatDateTime = (value) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleString()
+}
+
+const parsePickupDateTime = (date, time) => {
+  if (!date || !time) return null
+  const hour = Number(String(time).split(':')[0])
+  if (!Number.isFinite(hour) || hour < 6 || hour > 22) return null
+  const parsed = new Date(`${date}T${time}`)
+  if (Number.isNaN(parsed.getTime())) return null
+  if (parsed.getTime() <= Date.now()) return null
+  return parsed.toISOString()
 }
 
 const formatRelativeTime = (value) => {
@@ -49,6 +81,10 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionLoadingId, setActionLoadingId] = useState(null)
+  const [actionMessage, setActionMessage] = useState('')
+  const [adopterPickupForms, setAdopterPickupForms] = useState({})
+  const [ownerSuggestionForms, setOwnerSuggestionForms] = useState({})
+  const [ownerDetailsVisibility, setOwnerDetailsVisibility] = useState({})
   const currentRole = String(user?.role || '').toLowerCase()
 
   const loadDashboard = async () => {
@@ -234,7 +270,9 @@ export default function DashboardHome() {
   const handleRequestAction = async (adoptionId, status) => {
     try {
       setActionLoadingId(adoptionId)
+      setActionMessage('')
       await apiClient.put(`/v1/adoptions/requests/${adoptionId}/status`, { status })
+      setActionMessage('Request status updated successfully.')
       await loadDashboard()
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to update request')
@@ -243,9 +281,110 @@ export default function DashboardHome() {
     }
   }
 
+  const setAdopterPickupFormField = (adoptionId, field, value) => {
+    setAdopterPickupForms((prev) => ({
+      ...prev,
+      [adoptionId]: {
+        ...(prev[adoptionId] || { date: '', time: '' }),
+        [field]: value,
+      },
+    }))
+  }
+
+  const setOwnerSuggestionFormField = (adoptionId, field, value) => {
+    setOwnerSuggestionForms((prev) => ({
+      ...prev,
+      [adoptionId]: {
+        ...(prev[adoptionId] || { date: '', time: '' }),
+        [field]: value,
+      },
+    }))
+  }
+
+  const toggleOwnerDetails = (adoptionId) => {
+    setOwnerDetailsVisibility((prev) => ({
+      ...prev,
+      [adoptionId]: !prev[adoptionId],
+    }))
+  }
+
+  const submitPickupRequest = async (adoptionId) => {
+    const form = adopterPickupForms[adoptionId] || {}
+    const pickupDateTime = parsePickupDateTime(form.date, form.time)
+    if (!pickupDateTime) {
+      setError('Please choose a future pickup date and a time between 06:00 and 22:59.')
+      return
+    }
+
+    try {
+      setActionLoadingId(adoptionId)
+      setError('')
+      setActionMessage('')
+      await apiClient.post(`/v1/adoptions/requests/${adoptionId}/pickup-request`, { pickup_datetime: pickupDateTime })
+      setActionMessage('Pickup request sent successfully.')
+      await loadDashboard()
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to request pickup')
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const submitOwnerPickupSuggestion = async (adoptionId) => {
+    const form = ownerSuggestionForms[adoptionId] || {}
+    const pickupDateTime = parsePickupDateTime(form.date, form.time)
+    if (!pickupDateTime) {
+      setError('Please choose a future suggested date and a time between 06:00 and 22:59.')
+      return
+    }
+
+    try {
+      setActionLoadingId(adoptionId)
+      setError('')
+      setActionMessage('')
+      await apiClient.put(`/v1/adoptions/requests/${adoptionId}/pickup-suggestion`, { pickup_datetime: pickupDateTime })
+      setActionMessage('Pickup suggestion sent to adopter.')
+      await loadDashboard()
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to suggest pickup time')
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const acceptOwnerSuggestion = async (adoptionId) => {
+    try {
+      setActionLoadingId(adoptionId)
+      setError('')
+      setActionMessage('')
+      await apiClient.post(`/v1/adoptions/requests/${adoptionId}/pickup-suggestion/accept`)
+      setActionMessage('Pickup schedule confirmed.')
+      await loadDashboard()
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to accept pickup suggestion')
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const ownerMarkCompleted = async (adoptionId) => {
+    try {
+      setActionLoadingId(adoptionId)
+      setError('')
+      setActionMessage('')
+      await apiClient.post(`/v1/adoptions/requests/${adoptionId}/pickup-complete`, { status: 'completed' })
+      setActionMessage('Adoption marked as completed successfully.')
+      await loadDashboard()
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to mark completion')
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
   const adopterRequestCounts = useMemo(() => {
     const pending = adopterRequests.filter((item) => String(item?.status || '').toLowerCase() === 'pending').length
-    const approved = adopterRequests.filter((item) => String(item?.status || '').toLowerCase() === 'completed').length
+    const approved = adopterRequests.filter((item) => ['approved', 'pickup_requested', 'pickup_scheduled', 'completed'].includes(String(item?.status || '').toLowerCase())).length
     const rejected = adopterRequests.filter((item) => String(item?.status || '').toLowerCase() === 'cancelled').length
 
     return {
@@ -295,38 +434,37 @@ export default function DashboardHome() {
   const adopterNotifications = useMemo(() => {
     const updates = adopterRequests
       .map((request) => {
-        const normalized = String(request?.status || '').toLowerCase()
-        let message = `Your request for ${request?.pet_name || 'a pet'} is pending review`
+        const status = String(request?.status || '').toLowerCase()
+        let message = `Request sent for ${request?.pet_name || 'a pet'}`
 
-        if (normalized === 'completed') {
+        if (status === 'approved') {
           message = `Your request for ${request?.pet_name || 'a pet'} was approved`
-        } else if (normalized === 'cancelled') {
+        } else if (status === 'pickup_requested') {
+          message = `Pickup request sent for ${request?.pet_name || 'a pet'}`
+        } else if (status === 'pickup_scheduled') {
+          message = `Pickup scheduled for ${request?.pet_name || 'a pet'}`
+        } else if (status === 'owner_marked_completed') {
+          message = `Your adoption for ${request?.pet_name || 'this pet'} has been marked as completed`
+        } else if (status === 'completed') {
+          message = `Your adoption for ${request?.pet_name || 'this pet'} has been marked as completed`
+        } else if (status === 'cancelled') {
           message = `Your request for ${request?.pet_name || 'a pet'} was rejected`
         }
 
         return {
-          id: `request-update-${request.id}`,
+          id: `adopter-notification-${request.id}`,
           message,
           timestamp: request?.updated_at || request?.created_at,
         }
       })
       .filter((item) => item.timestamp)
       .sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime())
-      .slice(0, 3)
-
-    if (recommendedPets.length > 0) {
-      updates.push({
-        id: 'new-pets',
-        message: `${recommendedPets.length} new pets are available near you`,
-        timestamp: new Date().toISOString(),
-      })
-    }
 
     return updates.slice(0, 4)
-  }, [adopterRequests, recommendedPets.length])
+  }, [adopterRequests])
 
   const ownerCounts = useMemo(() => {
-    const pendingRequests = ownerRequests.filter((item) => String(item?.status || '').toLowerCase() === 'pending').length
+    const pendingRequests = ownerRequests.filter((item) => ['pending', 'pickup_requested', 'pickup_scheduled', 'approved'].includes(String(item?.status || '').toLowerCase())).length
     const totalRequests = ownerRequests.length
     const activeListings = ownerPets.filter((pet) => String(pet?.status?.value || pet?.status || '').toLowerCase() === 'available').length
 
@@ -337,25 +475,6 @@ export default function DashboardHome() {
       pendingRequests,
     }
   }, [ownerPets, ownerRequests])
-
-  const ownerMostRequestedPet = useMemo(() => {
-    if (ownerRequests.length === 0) return null
-
-    const counts = new Map()
-    for (const request of ownerRequests) {
-      const key = request.pet_id
-      const name = request.pet_name || `Pet #${request.pet_id}`
-      const current = counts.get(key) || { petId: key, petName: name, count: 0 }
-      counts.set(key, { ...current, count: current.count + 1 })
-    }
-
-    let best = null
-    for (const item of counts.values()) {
-      if (!best || item.count > best.count) best = item
-    }
-
-    return best
-  }, [ownerRequests])
 
   const ownerRequestInsights = useMemo(() => {
     const counts = new Map()
@@ -368,6 +487,20 @@ export default function DashboardHome() {
     }
 
     return [...counts.values()].sort((left, right) => right.count - left.count).slice(0, 4)
+  }, [ownerRequests])
+
+  const ownerMostRequestedPet = useMemo(() => {
+    if (ownerRequests.length === 0) return null
+
+    const counts = new Map()
+    for (const request of ownerRequests) {
+      const key = request.pet_id
+      const name = request.pet_name || `Pet #${request.pet_id}`
+      const current = counts.get(key) || { petId: key, petName: name, count: 0 }
+      counts.set(key, { ...current, count: current.count + 1 })
+    }
+
+    return [...counts.values()].sort((left, right) => right.count - left.count).slice(0, 4)[0] || null
   }, [ownerRequests])
 
   const ownerMostRequestedPetCard = useMemo(() => {
@@ -387,8 +520,16 @@ export default function DashboardHome() {
         const status = String(request?.status || '').toLowerCase()
         let message = `New request received for ${request?.pet_name || 'your pet'}`
 
-        if (status === 'completed') {
-          message = `${request?.pet_name || 'Your pet'} was adopted`
+        if (status === 'pickup_requested') {
+          message = `New pickup request received for ${request?.pet_name || 'your pet'}`
+        } else if (status === 'pickup_scheduled') {
+          message = `Pickup scheduled for ${request?.pet_name || 'your pet'}`
+        } else if (status === 'owner_marked_completed') {
+          message = `${request?.pet_name || 'Your pet'} adoption completed successfully`
+        } else if (status === 'completed') {
+          message = `${request?.pet_name || 'Your pet'} adoption completed successfully`
+        } else if (status === 'approved') {
+          message = `${request?.pet_name || 'Your pet'} request approved. Waiting pickup request.`
         } else if (status === 'cancelled') {
           message = `A request was rejected for ${request?.pet_name || 'your pet'}`
         }
@@ -434,6 +575,7 @@ export default function DashboardHome() {
       <div className="dashboard-shell rounded-[2rem] p-4 sm:p-5">
         {loading && <p className="text-gray-700 dark:text-gray-300">Loading dashboard...</p>}
         {!loading && error && <p className="text-red-600 dark:text-red-400">{error}</p>}
+        {!loading && !error && actionMessage && <p className="text-emerald-700 dark:text-emerald-300">{actionMessage}</p>}
 
         {!loading && !error && summary && (
           <div className="space-y-6 text-sm text-gray-700 dark:text-gray-300">
@@ -592,7 +734,7 @@ export default function DashboardHome() {
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => handleRequestAction(request.id, 'completed')}
+                            onClick={() => handleRequestAction(request.id, 'approved')}
                             disabled={actionLoadingId === request.id}
                             className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                           >
@@ -764,7 +906,7 @@ export default function DashboardHome() {
                               <th className="py-2 pr-4">Pet Name</th>
                               <th className="py-2 pr-4">Adopter Name</th>
                               <th className="py-2 pr-4">Status</th>
-                              <th className="py-2 pr-4">Date</th>
+                              <th className="py-2 pr-4">Pickup</th>
                               <th className="py-2 pr-4">Actions</th>
                             </tr>
                           </thead>
@@ -775,20 +917,16 @@ export default function DashboardHome() {
                                 <td className="py-2 pr-4">{item.user_name || '-'}</td>
                                 <td className="py-2 pr-4">
                                   <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusTone(item.status)}`}>
-                                    {String(item.status || '').toLowerCase() === 'completed'
-                                      ? 'Approved'
-                                      : String(item.status || '').toLowerCase() === 'cancelled'
-                                        ? 'Rejected'
-                                        : 'Pending'}
+                                    {getStatusLabel(item.status)}
                                   </span>
                                 </td>
-                                <td className="py-2 pr-4">{new Date(item?.adoption_date || item?.created_at || Date.now()).toLocaleDateString()}</td>
+                                <td className="py-2 pr-4">{formatDateTime(item.pickup_scheduled_datetime || item.pickup_suggested_datetime || item.pickup_requested_datetime)}</td>
                                 <td className="py-2 pr-4">
                                   {String(item.status || '').toLowerCase() === 'pending' ? (
                                     <div className="flex gap-2">
                                       <button
                                         type="button"
-                                        onClick={() => handleRequestAction(item.id, 'completed')}
+                                        onClick={() => handleRequestAction(item.id, 'approved')}
                                         disabled={actionLoadingId === item.id}
                                         className="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-emerald-700 hover:shadow-sm disabled:cursor-not-allowed disabled:bg-gray-400"
                                       >
@@ -803,9 +941,61 @@ export default function DashboardHome() {
                                         Reject
                                       </button>
                                     </div>
+                                  ) : String(item.status || '').toLowerCase() === 'pickup_requested' ? (
+                                    <div className="space-y-2">
+                                      <div className="flex flex-wrap gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRequestAction(item.id, 'pickup_scheduled')}
+                                          disabled={actionLoadingId === item.id}
+                                          className="rounded bg-sky-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                                        >
+                                          Accept Pickup
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRequestAction(item.id, 'cancelled')}
+                                          disabled={actionLoadingId === item.id}
+                                          className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                                        >
+                                          Reject
+                                        </button>
+                                      </div>
+                                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
+                                        <input
+                                          type="date"
+                                          value={ownerSuggestionForms[item.id]?.date || ''}
+                                          onChange={(e) => setOwnerSuggestionFormField(item.id, 'date', e.target.value)}
+                                          className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                                        />
+                                        <input
+                                          type="time"
+                                          value={ownerSuggestionForms[item.id]?.time || ''}
+                                          onChange={(e) => setOwnerSuggestionFormField(item.id, 'time', e.target.value)}
+                                          className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => submitOwnerPickupSuggestion(item.id)}
+                                          disabled={actionLoadingId === item.id}
+                                          className="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                                        >
+                                          Modify Time
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : String(item.status || '').toLowerCase() === 'pickup_scheduled' ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => ownerMarkCompleted(item.id)}
+                                      disabled={actionLoadingId === item.id}
+                                      className="rounded bg-lime-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-lime-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                                    >
+                                      Mark as Completed
+                                    </button>
                                   ) : (
                                     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusTone(item.status)}`}>
-                                      {String(item.status || '').toLowerCase() === 'completed' ? 'Approved' : 'Rejected'}
+                                      {getStatusLabel(item.status)}
                                     </span>
                                   )}
                                 </td>
@@ -908,16 +1098,91 @@ export default function DashboardHome() {
                     <div className="mt-4 space-y-3">
                       {adopterRequests.slice(0, 5).map((item) => (
                         <div key={item.id} className="dashboard-lift flex flex-col gap-3 rounded-xl border border-gray-200 p-4 dark:border-gray-800 dark:hover:border-sky-700 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
+                          <div className="flex-1">
                             <p className="font-semibold text-gray-900 dark:text-white">{item.pet_name || `Pet #${item.pet_id}`}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(item?.adoption_date || item?.created_at || Date.now()).toLocaleDateString()}</p>
+
+                            {['approved', 'pickup_requested', 'pickup_scheduled'].includes(String(item.status || '').toLowerCase()) && (
+                              <div className="mt-3">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleOwnerDetails(item.id)}
+                                  className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
+                                >
+                                  {ownerDetailsVisibility[item.id] ? 'Hide Owner Details' : 'View Owner Details'}
+                                </button>
+                              </div>
+                            )}
+
+                            {ownerDetailsVisibility[item.id] && (
+                              <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-900/20">
+                                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">Pet Owner Details</p>
+                                <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">Name: {item.pet_owner_name || '-'}</p>
+                                <p className="text-xs text-emerald-700 dark:text-emerald-300">Contact Number: {item.pet_owner_phone || '-'}</p>
+                                <p className="text-xs text-emerald-700 dark:text-emerald-300">Location: {item.pet_owner_address || '-'}</p>
+                              </div>
+                            )}
+
+                            {['approved', 'pickup_requested'].includes(String(item.status || '').toLowerCase()) && (
+                              <div className="mt-3 grid grid-cols-1 gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20 sm:grid-cols-3">
+                                <input
+                                  type="date"
+                                  value={adopterPickupForms[item.id]?.date || ''}
+                                  onChange={(e) => setAdopterPickupFormField(item.id, 'date', e.target.value)}
+                                  className="rounded-md border border-blue-200 bg-white px-3 py-2 text-sm text-gray-800 dark:border-blue-700 dark:bg-gray-900 dark:text-gray-100"
+                                />
+                                <input
+                                  type="time"
+                                  value={adopterPickupForms[item.id]?.time || ''}
+                                  onChange={(e) => setAdopterPickupFormField(item.id, 'time', e.target.value)}
+                                  className="rounded-md border border-blue-200 bg-white px-3 py-2 text-sm text-gray-800 dark:border-blue-700 dark:bg-gray-900 dark:text-gray-100"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => submitPickupRequest(item.id)}
+                                  disabled={actionLoadingId === item.id}
+                                  className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  Request Pickup
+                                </button>
+                              </div>
+                            )}
+
+                            {String(item.status || '').toLowerCase() === 'pickup_requested' && item.pickup_suggested_datetime && (
+                              <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 dark:border-sky-800 dark:bg-sky-900/20">
+                                <p className="text-sm font-semibold text-sky-800 dark:text-sky-200">Owner suggested a new pickup time</p>
+                                <p className="text-xs text-sky-700 dark:text-sky-300">{formatDateTime(item.pickup_suggested_datetime)}</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => acceptOwnerSuggestion(item.id)}
+                                    disabled={actionLoadingId === item.id}
+                                    className="rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                                  >
+                                    Accept
+                                  </button>
+                                  <span className="inline-flex items-center rounded-md bg-white px-3 py-2 text-xs text-sky-700 dark:bg-gray-900 dark:text-sky-200">
+                                    Or request another time above
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {String(item.status || '').toLowerCase() === 'pickup_scheduled' && (
+                              <p className="mt-2 text-xs font-medium text-sky-700 dark:text-sky-300">
+                                Pickup Scheduled: {formatDateTime(item.pickup_scheduled_datetime)}
+                              </p>
+                            )}
+
+                            {String(item.status || '').toLowerCase() === 'completed' && (
+                              <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-900/20">
+                                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Completed on {formatDateTime(item.completed_at)}</p>
+                                <p className="mt-1 text-xs text-emerald-700/90 dark:text-emerald-200">This adoption has been marked as completed by the owner.</p>
+                              </div>
+                            )}
                           </div>
                           <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusTone(item.status)}`}>
-                            {String(item.status || '').toLowerCase() === 'completed'
-                              ? 'Approved'
-                              : String(item.status || '').toLowerCase() === 'cancelled'
-                                ? 'Rejected'
-                                : 'Pending'}
+                            {getStatusLabel(item.status)}
                           </span>
                         </div>
                       ))}
