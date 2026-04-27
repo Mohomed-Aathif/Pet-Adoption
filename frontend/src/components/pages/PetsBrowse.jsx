@@ -6,14 +6,6 @@ import { useAuth } from '../../contexts/AuthContext'
 
 const AGE_STORAGE_OFFSET = 10000
 
-const mapSpeciesToType = (species) => {
-  const normalized = String(species || '').toLowerCase()
-  if (normalized === 'cat') return 'cats'
-  if (normalized === 'bird') return 'birds'
-  if (normalized === 'rabbit') return 'rabbits'
-  return 'dogs'
-}
-
 const decodeAgeToMonths = (rawAge) => {
   if (rawAge === null || rawAge === undefined || rawAge === '') return null
 
@@ -71,7 +63,6 @@ const toUiPet = (pet) => ({
   owner_id: pet.owner_id ?? null,
   ownerName: pet.owner_name || null,
   name: pet.name || 'Pet',
-  type: mapSpeciesToType(pet.species),
   age: formatAgeLabel(pet.age),
   ageRaw: pet.age,
   ageCategory: getAgeCategory(pet.age),
@@ -110,10 +101,7 @@ export default function PetsBrowse() {
     vaccinesCompleted: '0',
     nextVaccinationDate: '',
   })
-  const [selectedFilters, setSelectedFilters] = useState({
-    type: 'all',
-    age: 'all'
-  })
+  const [selectedFilters, setSelectedFilters] = useState({ age: 'all' })
   const [requestingPetId, setRequestingPetId] = useState(null)
   const [requestMessage, setRequestMessage] = useState('')
   const [requestError, setRequestError] = useState('')
@@ -129,14 +117,6 @@ export default function PetsBrowse() {
     user &&
     (user.role === 'admin' || selectedPet.owner_id === user.id)
   )
-
-  const petTypes = [
-    { id: 'all', label: 'All' },
-    { id: 'dogs', label: 'Dogs' },
-    { id: 'cats', label: 'Cats' },
-    { id: 'birds', label: 'Birds' },
-    { id: 'rabbits', label: 'Rabbits' }
-  ]
 
   const ageRanges = [
     { id: 'all', label: 'All Ages' },
@@ -326,10 +306,9 @@ export default function PetsBrowse() {
   }
 
   const filteredPets = sourcePets.filter(pet => {
-    const typeMatch = selectedFilters.type === 'all' || pet.type === selectedFilters.type
     const ageMatch = selectedFilters.age === 'all' || pet.ageCategory === selectedFilters.age
     const queryMatch = !searchQuery || pet.name.toLowerCase().includes(searchQuery.toLowerCase()) || pet.breed.toLowerCase().includes(searchQuery.toLowerCase())
-    return typeMatch && ageMatch && queryMatch
+    return ageMatch && queryMatch
   })
 
   const submitAdoptionRequest = async (pet) => {
@@ -1149,7 +1128,7 @@ export default function PetsBrowse() {
             </h2>
             <button
               onClick={() => {
-                setSelectedFilters({ type: 'all', age: 'all' })
+                setSelectedFilters({ age: 'all' })
                 setSearchQuery('')
               }}
               className="text-blue-600 dark:text-blue-400 text-sm font-semibold 
@@ -1158,7 +1137,6 @@ export default function PetsBrowse() {
             </button>
           </div>
 
-          <FilterSection label="Pet Type" options={petTypes} filterKey="type" />
           <FilterSection label="Age" options={ageRanges} filterKey="age" />
 
           <button
@@ -1223,7 +1201,7 @@ export default function PetsBrowse() {
               </p>
               <button
                 onClick={() => {
-                  setSelectedFilters({ type: 'all', age: 'all' })
+                  setSelectedFilters({ age: 'all' })
                   setSearchQuery('')
                 }}
                 className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white 

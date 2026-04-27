@@ -1,8 +1,9 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
-import { AuthProvider } from './contexts/AuthContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ProtectedRoute, RoleProtectedRoute } from './components/ProtectedRoute'
 import Layout from './components/layout/Layout'
+import ChatbotAssistant from './components/common/ChatbotAssistant'
 import Home from './components/pages/Home'
 import PetsBrowse from './components/pages/PetsBrowse'
 import Profile from './components/pages/Profile'
@@ -22,98 +23,120 @@ import DashboardHome from './components/pages/DashboardHome'
 import ReportStray from './components/pages/ReportStray'
 import AdminStrayReports from './components/pages/AdminStrayReports'
 
+function ChatbotVisibilityController() {
+  const location = useLocation()
+  const { isAuthenticated, user } = useAuth()
+  const role = String(user?.role || 'guest').toLowerCase()
+
+  const onGuestHome = !isAuthenticated && location.pathname === '/'
+  const onRoleDashboard =
+    isAuthenticated &&
+    location.pathname === '/dashboard' &&
+    (role === 'adopter' || role === 'owner')
+
+  if (!onGuestHome && !onRoleDashboard) {
+    return null
+  }
+
+  return <ChatbotAssistant role={onGuestHome ? 'guest' : role} />
+}
+
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/donate" element={<Donation />} />
-          <Route path="/donate/payment" element={<DonationPayment />} />
-          <Route path="/report-stray" element={<ReportStray />} />
+        <>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/donate" element={<Donation />} />
+            <Route path="/donate/payment" element={<DonationPayment />} />
+            <Route path="/report-stray" element={<ReportStray />} />
 
-          <Route
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="dashboard" element={<DashboardHome />} />
-            <Route path="pets" element={<PetsBrowse />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="favorites" element={<Favorites />} />
-            <Route path="notifications" element={<Notifications />} />
             <Route
-              path="requests"
               element={
-                <RoleProtectedRoute allowedRoles={['adopter', 'owner']}>
-                  <AdoptionRequests />
-                </RoleProtectedRoute>
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
               }
-            />
-            <Route
-              path="admin/dashboard"
-              element={
-                <RoleProtectedRoute allowedRoles={['admin']}>
-                  <DashboardHome />
-                </RoleProtectedRoute>
-              }
-            />
-            <Route
-              path="admin/users"
-              element={
-                <RoleProtectedRoute allowedRoles={['admin']}>
-                  <AdminUsers />
-                </RoleProtectedRoute>
-              }
-            />
-            <Route
-              path="admin/pets"
-              element={
-                <RoleProtectedRoute allowedRoles={['admin']}>
-                  <AdminPets />
-                </RoleProtectedRoute>
-              }
-            />
-            <Route
-              path="admin/requests"
-              element={
-                <RoleProtectedRoute allowedRoles={['admin']}>
-                  <AdminRequests />
-                </RoleProtectedRoute>
-              }
-            />
-            <Route
-              path="admin/analytics"
-              element={
-                <RoleProtectedRoute allowedRoles={['admin']}>
-                  <AdminAnalytics />
-                </RoleProtectedRoute>
-              }
-            />
-            <Route
-              path="admin/donations"
-              element={
-                <RoleProtectedRoute allowedRoles={['admin']}>
-                  <AdminDonations />
-                </RoleProtectedRoute>
-              }
-            />
-            <Route
-              path="admin/stray-reports"
-              element={
-                <RoleProtectedRoute allowedRoles={['admin']}>
-                  <AdminStrayReports />
-                </RoleProtectedRoute>
-              }
-            />
-          </Route>
+            >
+              <Route path="dashboard" element={<DashboardHome />} />
+              <Route path="pets" element={<PetsBrowse />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="favorites" element={<Favorites />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route
+                path="requests"
+                element={
+                  <RoleProtectedRoute allowedRoles={['adopter', 'owner']}>
+                    <AdoptionRequests />
+                  </RoleProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/dashboard"
+                element={
+                  <RoleProtectedRoute allowedRoles={['admin']}>
+                    <DashboardHome />
+                  </RoleProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/users"
+                element={
+                  <RoleProtectedRoute allowedRoles={['admin']}>
+                    <AdminUsers />
+                  </RoleProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/pets"
+                element={
+                  <RoleProtectedRoute allowedRoles={['admin']}>
+                    <AdminPets />
+                  </RoleProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/requests"
+                element={
+                  <RoleProtectedRoute allowedRoles={['admin']}>
+                    <AdminRequests />
+                  </RoleProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/analytics"
+                element={
+                  <RoleProtectedRoute allowedRoles={['admin']}>
+                    <AdminAnalytics />
+                  </RoleProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/donations"
+                element={
+                  <RoleProtectedRoute allowedRoles={['admin']}>
+                    <AdminDonations />
+                  </RoleProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/stray-reports"
+                element={
+                  <RoleProtectedRoute allowedRoles={['admin']}>
+                    <AdminStrayReports />
+                  </RoleProtectedRoute>
+                }
+              />
+            </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+
+          <ChatbotVisibilityController />
+        </>
       </AuthProvider>
     </ThemeProvider>
   )
