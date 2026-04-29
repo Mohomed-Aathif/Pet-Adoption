@@ -128,20 +128,17 @@ backend/
 git clone https://github.com/yourusername/pet-adoption-platform.git
 cd pet-adoption-platform/backend
 ```
----
 
 ## 2️⃣ Create Virtual Environment
 ```
 python -m venv venv
 venv\Scripts\activate
 ```
----
 
 ## 3️⃣ Install Dependencies
 ```
 pip install -r requirements.txt
 ```
----
 
 ## 4️⃣ Configure Environment
 
@@ -152,13 +149,11 @@ SECRET_KEY=your_secret_key
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=120
 ```
----
 
 ## 5️⃣ Run Server
 ```
 python -m uvicorn app.main:app --reload --port 9000
 ```
----
 
 ## 6️⃣ API Documentation
 ```
