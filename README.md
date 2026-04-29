@@ -5,7 +5,7 @@
 ![JWT](https://img.shields.io/badge/Auth-JWT-orange)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-A full stack web-based **Pet Adoption Platform** designed to connect adopters, pet owners, shelters, and administrators in a centralized system. The platform improves transparency, efficiency, and reliability in the pet adoption process.
+A full stack web-based **Pet Adoption Platform** designed to connect adopters, pet owners, and administrators in a centralized system. The platform improves transparency, efficiency, and reliability in the pet adoption process.
 
 ---
 
@@ -49,11 +49,6 @@ A full stack web-based **Pet Adoption Platform** designed to connect adopters, p
   - Manage requests
   - Communicate with adopters
 
-- **Shelter**
-  - Manage multiple pets
-  - Handle bulk adoption requests
-  - Maintain records
-
 ---
 
 ### 📊 Dashboards
@@ -83,6 +78,7 @@ A full stack web-based **Pet Adoption Platform** designed to connect adopters, p
 ---
 
 ## 🏗️ Project Structure
+```
 backend/
 ├── app/
 │   ├── api/v1/endpoints/
@@ -94,7 +90,7 @@ backend/
 │   ├── config/
 │   ├── database.py
 │   └── main.py
-
+```
 
 ---
 
@@ -128,30 +124,44 @@ backend/
 ## ⚙️ Setup Instructions
 
 ###1️⃣ Clone Repository
-```bash
+```
 git clone https://github.com/yourusername/pet-adoption-platform.git
 cd pet-adoption-platform/backend
+```
+---
 
 ###2️⃣ Create Virtual Environment
+```
 python -m venv venv
 venv\Scripts\activate
+```
+---
 
 ###3️⃣ Install Dependencies
+```
 pip install -r requirements.txt
+```
+---
 
 ###4️⃣ Configure Environment
 
 Create .env file:
-
+```
 DATABASE_URL=postgresql://user:password@localhost:5432/pet_adoption
 SECRET_KEY=your_secret_key
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=120
+```
+---
 
 ###5️⃣ Run Server
+```
 python -m uvicorn app.main:app --reload --port 9000
+```
+---
 
 ###6️⃣ API Documentation
+```
 http://localhost:9000/docs
 ```
 ---
