@@ -79,17 +79,133 @@ A full stack web-based **Pet Adoption Platform** designed to connect adopters, p
 
 ## 🏗️ Project Structure
 ```
-backend/
-├── app/
-│   ├── api/v1/endpoints/
-│   ├── core/
-│   ├── models/
-│   ├── schemas/
-│   ├── crud/
-│   ├── utils/
-│   ├── config/
-│   ├── database.py
-│   └── main.py
+pet-adoption-platform/
+│
+├── 📁 frontend/
+│ │
+│ ├── 📁 public/
+│ │ └── Static assets (icons, images)
+│ │
+│ ├── 📁 src/
+│ │ │
+│ │ ├── 📁 components/
+│ │ │ ├── 📁 layout/
+│ │ │ │ ├── Layout.jsx
+│ │ │ │ ├── Navbar.jsx
+│ │ │ │ ├── Sidebar.jsx
+│ │ │ │ ├── Header.jsx
+│ │ │ │ └── Footer.jsx
+│ │ │ │
+│ │ │ ├── 📁 pages/
+│ │ │ │ ├── Home.jsx
+│ │ │ │ ├── PetsBrowse.jsx
+│ │ │ │ └── Settings.jsx
+│ │ │ │
+│ │ │ ├── 📁 common/
+│ │ │ │ ├── Card.jsx
+│ │ │ │ ├── Button.jsx
+│ │ │ │ ├── Modal.jsx
+│ │ │ │ └── Spinner.jsx
+│ │ │ │
+│ │ │ └── 📁 forms/
+│ │ │ ├── LoginForm.jsx
+│ │ │ ├── RegisterForm.jsx
+│ │ │ └── ProfileForm.jsx
+│ │ │
+│ │ ├── 📁 contexts/
+│ │ │ └── ThemeContext.jsx
+│ │ │
+│ │ ├── 📁 hooks/
+│ │ │ ├── useTheme.js
+│ │ │ ├── useAuth.js
+│ │ │ └── useFetch.js
+│ │ │
+│ │ ├── 📁 services/
+│ │ │ ├── api.js
+│ │ │ ├── auth.js
+│ │ │ ├── pets.js
+│ │ │ └── users.js
+│ │ │
+│ │ ├── 📁 store/
+│ │ │ ├── authStore.js
+│ │ │ ├── petStore.js
+│ │ │ └── uiStore.js
+│ │ │
+│ │ ├── 📁 styles/
+│ │ │ └── index.css
+│ │ │
+│ │ ├── 📁 utils/
+│ │ │ ├── tailwindUtils.js
+│ │ │ ├── constants.js
+│ │ │ ├── helpers.js
+│ │ │ └── validators.js
+│ │ │
+│ │ ├── 📁 types/
+│ │ │ ├── index.d.ts
+│ │ │ ├── user.d.ts
+│ │ │ └── pet.d.ts
+│ │ │
+│ │ ├── App.jsx
+│ │ └── main.jsx
+│ │
+│ └── package.json
+|
+├── 📁 backend/
+│ │
+│ ├── 📁 app/
+│ │ ├── 📁 api/v1/
+│ │ │ ├── 📁 endpoints/
+│ │ │ │ ├── auth.py
+│ │ │ │ ├── admin.py
+│ │ │ │ ├── users.py
+│ │ │ │ ├── pets.py
+│ │ │ │ └── adoptions.py
+│ │ │ │
+│ │ │ ├── router.py
+│ │ │ └── init.py
+│ │ │
+│ │ ├── 📁 core/
+│ │ │ ├── init.py
+│ │ │ └── dependencies.py
+│ │ │
+│ │ ├── 📁 models/
+│ │ │ ├── user.py
+│ │ │ ├── pet.py
+│ │ │ └── adoption.py
+│ │ │
+│ │ ├── 📁 schemas/
+│ │ │ ├── user.py
+│ │ │ ├── token.py
+│ │ │ ├── pet.py
+│ │ │ └── adoption.py
+│ │ │
+│ │ ├── 📁 crud/
+│ │ │ ├── user.py
+│ │ │ ├── pet.py
+│ │ │ └── adoption.py
+│ │ │
+│ │ ├── 📁 utils/
+│ │ │ └── security.py
+│ │ │
+│ │ ├── 📁 config/
+│ │ │ └── settings.py
+│ │ │
+│ │ ├── main.py
+│ │ ├── database.py
+│ │ └── init_db.py
+│ │
+│ ├── 📁 migrations/
+│ │ └── versions/
+│ │
+│ ├── 📁 tests/
+│ │ ├── 📁 unit/
+│ │ └── 📁 integration/
+│ │
+│ ├── run.py
+│ ├── requirements.txt
+│ ├── .env.example
+│ └── .gitignore
+
 ```
 
 ---
