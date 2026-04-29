@@ -85,15 +85,15 @@ A full stack web-based **Pet Adoption Platform** designed to connect adopters, p
 ## 🏗️ Project Structure
 backend/
 ├── app/
-│ ├── api/v1/endpoints/
-│ ├── core/
-│ ├── models/
-│ ├── schemas/
-│ ├── crud/
-│ ├── utils/
-│ ├── config/
-│ ├── database.py
-│ └── main.py
+│   ├── api/v1/endpoints/
+│   ├── core/
+│   ├── models/
+│   ├── schemas/
+│   ├── crud/
+│   ├── utils/
+│   ├── config/
+│   ├── database.py
+│   └── main.py
 
 
 ---
