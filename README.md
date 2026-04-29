@@ -167,22 +167,22 @@ http://localhost:9000/docs
 ---
 
 ## 🧪 Testing
-API tested using Swagger UI
-Manual endpoint validation
+* API tested using Swagger UI
+* Manual endpoint validation
 
 ---
 
-##📈 Highlights
-Clean layered architecture
-Secure authentication system
-Role-based access control
-Scalable backend design
-RESTful API implementation
+## 📈 Highlights
+* Clean layered architecture
+* Secure authentication system
+* Role-based access control
+* Scalable backend design
+* RESTful API implementation
 
 ---
 
-🚧 Future Improvements
-AI-based pet recommendations
-Real-time chat system
-Payment integration
-Mobile app support
+## 🚧 Future Improvements
+* AI-based pet recommendations
+* Real-time chat system
+* Payment integration
+* Mobile app support
