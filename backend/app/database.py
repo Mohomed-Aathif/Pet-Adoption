@@ -1,5 +1,7 @@
-from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import StaticPool
 from fastapi import HTTPException
 from app.config.settings import settings
 import logging
@@ -7,12 +9,12 @@ from typing import Generator
 
 logger = logging.getLogger(__name__)
 
-# Create engine
+# Create engine with connection pool
 engine = create_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
-    pool_pre_ping=True,
-    pool_recycle=3600,
+    pool_pre_ping=True,  # Verify connections before using them
+    pool_recycle=3600,   # Recycle connections after 1 hour
     connect_args=(
         {"check_same_thread": False}
         if "sqlite" in settings.DATABASE_URL
@@ -20,23 +22,23 @@ engine = create_engine(
     ),
 )
 
-# Session factory
+# Create session factory
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine,
 )
 
-# Base model
+# Base class for all models
 Base = declarative_base()
 
-
 def get_db() -> Generator[Session, None, None]:
-    """FastAPI DB dependency"""
+
     db = SessionLocal()
     try:
         yield db
     except HTTPException:
+        # HTTP errors (e.g., 401 from auth endpoints) are expected and should not be logged as DB failures.
         db.rollback()
         raise
     except Exception as e:
@@ -46,72 +48,61 @@ def get_db() -> Generator[Session, None, None]:
     finally:
         db.close()
 
-
 def init_db():
-    """Initialize tables"""
+
     try:
         logger.info("Initializing database...")
         Base.metadata.create_all(bind=engine)
-        logger.info("Database initialized successfully")
+        logger.info("✓ Database initialized successfully")
     except Exception as e:
         logger.error(f"Error initializing database: {str(e)}")
         raise
 
-
 def drop_db():
-    """Drop all tables (DEV ONLY)"""
-    if getattr(settings, "ENV", "development") == "production":
-        raise RuntimeError("drop_db is not allowed in production")
 
     try:
         logger.warning("Dropping all database tables...")
         Base.metadata.drop_all(bind=engine)
-        logger.info("All tables dropped")
+        logger.info("✓ All tables dropped")
     except Exception as e:
         logger.error(f"Error dropping database: {str(e)}")
         raise
 
-
 def reset_db():
-    """Reset DB (DEV ONLY)"""
-    if getattr(settings, "ENV", "development") == "production":
-        raise RuntimeError("reset_db is not allowed in production")
 
     try:
         logger.warning("Resetting database...")
         drop_db()
         init_db()
-        logger.info("Database reset successfully")
+        logger.info("✓ Database reset successfully")
     except Exception as e:
         logger.error(f"Error resetting database: {str(e)}")
         raise
 
 
 def ensure_pet_owner_column():
-    """Add pets.owner_id if missing"""
+    """Best-effort schema patch: add pets.owner_id when missing."""
     try:
         inspector = inspect(engine)
-
         if "pets" not in inspector.get_table_names():
             return
 
-        columns = {col["name"] for col in inspector.get_columns("pets")}
-        if "owner_id" in columns:
+        pet_columns = {col["name"] for col in inspector.get_columns("pets")}
+        if "owner_id" in pet_columns:
             return
 
+        ddl = "ALTER TABLE pets ADD COLUMN owner_id INTEGER"
+
         with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE pets ADD COLUMN owner_id INTEGER"))
+            conn.execute(text(ddl))
 
-        logger.info("Added pets.owner_id column")
-
+        logger.info("✓ Added pets.owner_id column")
     except Exception as e:
-        logger.warning(f"Schema patch failed (pets.owner_id): {str(e)}")
-        if getattr(settings, "ENV", "development") == "production":
-            raise RuntimeError("Critical schema migration failed")
+        logger.warning(f"Could not ensure pets.owner_id column: {str(e)}")
 
 
 def migrate_shelter_roles_to_owner():
-    """Normalize legacy roles"""
+    """Best-effort data migration: normalize legacy shelter users to owner."""
     try:
         with engine.begin() as conn:
             result = conn.execute(
@@ -119,62 +110,51 @@ def migrate_shelter_roles_to_owner():
             )
 
         if result.rowcount and result.rowcount > 0:
-            logger.info(f"Migrated {result.rowcount} user(s) to owner")
-
+            logger.info(f"✓ Migrated {result.rowcount} shelter user(s) to owner")
     except Exception as e:
-        logger.warning(f"Role migration failed: {str(e)}")
-        if getattr(settings, "ENV", "development") == "production":
-            raise RuntimeError("Critical data migration failed")
+        logger.warning(f"Could not migrate shelter roles to owner: {str(e)}")
 
 
 def ensure_pet_vaccination_columns():
-    """Add vaccination fields if missing"""
+    """Best-effort schema patch: add pets.vaccines_completed and pets.next_vaccination_date when missing."""
     try:
         inspector = inspect(engine)
-
         if "pets" not in inspector.get_table_names():
             return
 
-        columns = {col["name"] for col in inspector.get_columns("pets")}
-
-        with engine.begin() as conn:
-            if "vaccines_completed" not in columns:
-                conn.execute(
-                    text(
-                        "ALTER TABLE pets ADD COLUMN vaccines_completed INTEGER DEFAULT 0"
-                    )
-                )
-                logger.info("Added pets.vaccines_completed")
-
-            if "next_vaccination_date" not in columns:
-                conn.execute(
-                    text(
-                        "ALTER TABLE pets ADD COLUMN next_vaccination_date DATE"
-                    )
-                )
-                logger.info("Added pets.next_vaccination_date")
-
+        pet_columns = {col["name"] for col in inspector.get_columns("pets")}
+        
+        # Add vaccines_completed column if missing
+        if "vaccines_completed" not in pet_columns:
+            ddl = "ALTER TABLE pets ADD COLUMN vaccines_completed INTEGER DEFAULT 0"
+            
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+            logger.info("✓ Added pets.vaccines_completed column")
+        
+        # Add next_vaccination_date column if missing
+        if "next_vaccination_date" not in pet_columns:
+            ddl = "ALTER TABLE pets ADD COLUMN next_vaccination_date DATE"
+            
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+            logger.info("✓ Added pets.next_vaccination_date column")
     except Exception as e:
-        logger.warning(f"Vaccination schema patch failed: {str(e)}")
-        if getattr(settings, "ENV", "development") == "production":
-            raise RuntimeError("Critical schema migration failed")
+        logger.warning(f"Could not ensure pet vaccination columns: {str(e)}")
 
 
 def ensure_adoption_workflow_columns():
-    """Add adoption workflow columns if missing"""
+    """Best-effort schema patch: add new adoptions workflow columns when missing."""
     try:
         inspector = inspect(engine)
-
         if "adoptions" not in inspector.get_table_names():
             return
 
-        columns = {col["name"] for col in inspector.get_columns("adoptions")}
-
-        timestamp_type = (
-            "DATETIME" if engine.dialect.name == "sqlite" else "TIMESTAMP"
-        )
-
-        required = [
+        adoption_columns = {col["name"] for col in inspector.get_columns("adoptions")}
+        timestamp_type = "TIMESTAMP"
+        if engine.dialect.name == "sqlite":
+            timestamp_type = "DATETIME"
+        missing_columns = [
             "pickup_requested_datetime",
             "pickup_suggested_datetime",
             "pickup_scheduled_datetime",
@@ -182,15 +162,16 @@ def ensure_adoption_workflow_columns():
             "completed_at",
         ]
 
-        with engine.begin() as conn:
-            for col in required:
-                if col not in columns:
-                    conn.execute(
-                        text(f"ALTER TABLE adoptions ADD COLUMN {col} {timestamp_type}")
-                    )
-                    logger.info(f"Added adoptions.{col}")
+        if not any(column not in adoption_columns for column in missing_columns):
+            return
 
+        for column_name in missing_columns:
+            if column_name in adoption_columns:
+                continue
+
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE adoptions ADD COLUMN {column_name} {timestamp_type}"))
+            logger.info(f"✓ Added adoptions.{column_name} column")
     except Exception as e:
-        logger.warning(f"Adoption workflow migration failed: {str(e)}")
-        if getattr(settings, "ENV", "development") == "production":
-            raise RuntimeError("Critical schema migration failed")
+        logger.warning(f"Could not ensure adoption workflow columns: {str(e)}")
+
